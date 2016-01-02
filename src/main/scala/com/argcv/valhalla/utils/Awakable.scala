@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory
  *
  * Here is a example use this trait
  * {{{
- * import org.aminer.io.utils.Awakable
+ * import com.argcv.valhalla.utils.Awakable
  *
  * trait MyObject extends Awakable{
  *  def someMoreCommonFuns(s:String) = {
@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory
  *
  * }}}
  *
- * A typical example is [[org.aminer.io.services.BaseService]]
+ * A typical example is [[com.argcv.valhalla.utils.Awakable]]
  *
  * Additionally, this is ^^also^^ a ,,example,, of '''How to write scala documents?'''
  *
@@ -36,7 +36,7 @@ trait Awakable {
   /**
    * a logger instance of org.slf4j.Logger
    *
-   * defined in [[org.aminer.io.utils.Awakable]]
+   * defined in [[com.argcv.valhalla.utils.Awakable]]
    */
   lazy val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -53,3 +53,5 @@ trait Awakable {
   }
 
 }
+
+object Awakable extends Awakable
