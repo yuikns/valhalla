@@ -1,6 +1,6 @@
 package com.argcv.valhalla.string.json
 
-import com.argcv.valhalla.exception.ExceptionHelper.ExceptionCatching
+import com.argcv.valhalla.exception.ExceptionHelper.SafeExecWithTrace
 import com.argcv.valhalla.reflect.ReflectHelper
 import com.google.common.base.CaseFormat
 
@@ -24,6 +24,7 @@ trait JsonHelper {
 
   /**
    * convert one string to some other type
+   *
    * @param s string to convert
    */
   implicit class JsonConverter(val s: String) {
@@ -100,15 +101,6 @@ trait JsonHelper {
     def parseJsonToMap = scala.util.control.Exception.catching(classOf[java.lang.ClassCastException]) opt parseJson.asInstanceOf[Map[String, Any]]
 
     /**
-     * @return
-     */
-    def parseJson = {
-      //implicit val formats = net.liftweb.json.DefaultFormats
-      implicit val formats = JsonHelper.jsonFormatsWithDateTime
-      net.liftweb.json.JsonParser.parse(s).values
-    }
-
-    /**
      * @param or or else
      * @return
      */
@@ -123,7 +115,17 @@ trait JsonHelper {
     def parseJsonToList = scala.util.control.Exception.catching(classOf[java.lang.ClassCastException]) opt parseJson.asInstanceOf[List[Any]]
 
     /**
+     * @return
+     */
+    def parseJson = {
+      //implicit val formats = net.liftweb.json.DefaultFormats
+      implicit val formats = JsonHelper.jsonFormatsWithDateTime
+      net.liftweb.json.JsonParser.parse(s).values
+    }
+
+    /**
      * parse string type json to class T
+     *
      * @tparam T type to apply
      * @return opt class
      */
@@ -131,7 +133,7 @@ trait JsonHelper {
       //implicit val formats = net.liftweb.json.DefaultFormats
       implicit val formats = JsonHelper.jsonFormatsWithDateTime
       implicit val mf = ReflectHelper.classTag2Manifest[T]
-      (() => net.liftweb.json.JsonParser.parse(s).extract[T]).safeExec
+      SafeExecWithTrace(net.liftweb.json.JsonParser.parse(s).extract[T])
     }
   }
 
