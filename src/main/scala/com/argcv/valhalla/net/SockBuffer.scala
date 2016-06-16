@@ -2,11 +2,14 @@ package com.argcv.valhalla.net
 
 import java.net.Socket
 
+import com.argcv.valhalla.exception.ExceptionHelper.SafeExecWithTrace
+import com.argcv.valhalla.net.DataSerializer.IntSerializer
+
 import scala.tools.nsc.interpreter.OutputStream
 
 /**
- * @param host host "127.0.0.1" etc.
- * @param port port "80" etc.
+ * @param host    host "127.0.0.1" etc.
+ * @param port    port "80" etc.
  * @param timeout timeout in ms, 0 for never timeout
  */
 
@@ -19,21 +22,27 @@ case class SockBuffer(host: String, port: Int, timeout: Int = 0) {
   def isClosed: Boolean =
     sock.isClosed
 
+  /**
+   * @return status: is connected
+   */
   def isConnected: Boolean =
     sock.isConnected
 
+  /**
+   * @param buff string to sent
+   * @return is successfully sent
+   */
   def send(buff: String): Boolean = {
     val bytes: Array[Byte] = buff.getBytes
     send(bytes, 0, bytes.length)
   }
 
-  def sendWithLength(buff: String): Boolean = {
-    import DataSerializer.IntSerializer
-    val bytes: Array[Byte] = buff.getBytes
-    val lenArray = bytes.length.getByteArray
-    send(lenArray, 0, lenArray.length) && send(bytes, 0, bytes.length)
-  }
-
+  /**
+   * @param buff string to sent
+   * @param off  offset
+   * @param len  size to sent
+   * @return is successfully sent
+   */
   def send(buff: Array[Byte], off: Int, len: Int): Boolean = {
     try {
       val os: OutputStream = sock.getOutputStream
@@ -50,6 +59,7 @@ case class SockBuffer(host: String, port: Int, timeout: Int = 0) {
 
   /**
    * reactivate
+   *
    * @return is success?
    */
   def activate(): Boolean = {
@@ -103,23 +113,58 @@ case class SockBuffer(host: String, port: Int, timeout: Int = 0) {
     }
   }
 
+  /**
+   * send a length first, and then send
+   *
+   * @param buff buffer to sent
+   * @return
+   */
+  def sendWithLength(buff: String): Boolean = {
+    val bytes: Array[Byte] = buff.getBytes
+    val lenArray = bytes.length.getByteArray
+    send(lenArray, 0, lenArray.length) && send(bytes, 0, bytes.length)
+  }
+
+  /**
+   * Reads up to <code>len</code> bytes of data from the input stream into
+   * an array of bytes.  An attempt is made to read as many as
+   * <code>len</code> bytes, but a smaller number may be read.
+   *
+   * the result will converted to string
+   *
+   * @param len the maximum number of bytes to read.
+   * @return
+   */
   def recvAsString(len: Int): Option[String] = {
     recv(len) match {
-      case Some(s) => Option(new String(s))
+      case Some(s) => Some(new String(s))
       case None => None
     }
   }
 
+  /**
+   * Reads up to <code>len</code> bytes of data from the input stream into
+   * an array of bytes.  An attempt is made to read as many as
+   * <code>len</code> bytes, but a smaller number may be read.
+   *
+   * @param len the maximum number of bytes to read.
+   * @return
+   */
   def recv(len: Int): Option[Array[Byte]] = {
-    try {
+    SafeExecWithTrace {
       val is = sock.getInputStream
       val rt = new Array[Byte](len)
       val rl = is.read(rt, 0, len)
-      Option(rt.take(rl))
-    } catch {
-      case t: Throwable =>
-        t.printStackTrace()
-        activate() // reconnect
+      Some(rt.take(rl))
+    } match {
+      case Some(resp) =>
+        resp
+      case None =>
+
+        /**
+         * some exception occured, try to reconnect
+         */
+        activate()
         None
     }
   }

@@ -11,20 +11,6 @@ import scala.util.control.Exception
  */
 object ExceptionHelper extends Awakable {
 
-  implicit class ExceptionCatching[R](exec: () => R) {
-    def safeExec: Option[R] = Exception.catching(classOf[Throwable]) opt exec()
-
-    def safeExecWithMessage: (Boolean, String) = {
-      try {
-        exec()
-        (true, "")
-      } catch {
-        case t: Throwable =>
-          (false, t.getMessage)
-      }
-    }
-  }
-
   object SafeExec {
     def apply[R](body: => R): Option[R] = Exception.catching(classOf[Throwable]) opt body
   }
