@@ -4,7 +4,7 @@
 
     <appender name="FILE"
               class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/iphigenia.log</file>
+        <file>logs/valhalla.log</file>
         <append>true</append>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <!-- daily rollover -->
@@ -14,13 +14,13 @@
             <maxHistory>30</maxHistory>
         </rollingPolicy>
         <encoder>
-            <Pattern>%d %p %t %c - %m -- iphigenia said ~%n</Pattern>
+            <Pattern>%d %p %t %c - %m -- valhalla said ~%n</Pattern>
         </encoder>
     </appender>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <Pattern>%d %p %t %c - %m -- iphigenia said ~%n</Pattern>
+            <Pattern>%d %p %t %c - %m -- valhalla said ~%n</Pattern>
         </encoder>
     </appender>
 
