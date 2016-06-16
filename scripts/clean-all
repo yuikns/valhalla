@@ -1,0 +1,5 @@
+#!/bin/sh
+echo "cleaning..."
+rm -rf target project/project/ project/target/ 
+echo "all temporary files are removed"
+
