@@ -3,9 +3,9 @@ package com.argcv.valhalla.utils
 import java.io.File
 
 /**
-  * helper for file system
-  *
-  */
+ * helper for file system
+ *
+ */
 object FSHelper {
   def mkdir(path: String) = {
     new File(path).mkdirs()
