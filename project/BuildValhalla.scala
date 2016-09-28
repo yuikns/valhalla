@@ -45,6 +45,7 @@ object BuildValhalla extends Build {
       "net.liftweb" % "lift-webkit_2.11" % "3.0-M6", // a light weight framework for web
       "com.google.guava" % "guava" % "18.0", // string process etc. (snake case for example)
       "ch.qos.logback" % "logback-classic" % "1.1.2", // logger, can be ignored in play framwork
+      "org.iq80.leveldb" % "leveldb" % "0.7", // leveldb
       "org.scalanlp" % "breeze_2.11" % "0.11.2", // collection
       "org.scalatest" % "scalatest_2.11" % "2.2.5" % "test"
     ),
