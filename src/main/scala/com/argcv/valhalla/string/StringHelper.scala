@@ -37,6 +37,12 @@ object StringHelper {
 
   def isChineseChar(c: Char): Boolean = c >= '\u4E00' && c <= '\u9FA5'
 
+  def stem(s: String) = {
+    val stemmer = new PorterStemmer(s)
+    stemmer.stem()
+    stemmer.getCurrent
+  }
+
   /**
    * return this string is null or not
    * @param s input string
@@ -122,7 +128,7 @@ object StringHelper {
       s.split("\\s+").flatMap { ones =>
         val tones = ones.trim
         if (tones.length > 0) {
-          Option(ones.capitalize)
+          Some(ones.capitalize)
         } else {
           None
         }

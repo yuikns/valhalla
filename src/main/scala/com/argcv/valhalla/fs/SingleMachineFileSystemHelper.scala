@@ -3,7 +3,7 @@ package com.argcv.valhalla.fs
 import java.io.{ BufferedWriter, File, FileReader, FileWriter }
 
 import breeze.io.CSVReader
-import com.argcv.valhalla.client.LevelDBClient$
+import com.argcv.valhalla.client.LevelDBClient
 import com.argcv.valhalla.exception.ExceptionHelper.SafeExecWithMessage
 import com.argcv.valhalla.utils.Awakable
 
