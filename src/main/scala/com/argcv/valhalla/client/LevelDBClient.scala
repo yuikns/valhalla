@@ -11,7 +11,7 @@ import org.iq80.leveldb.{ DB => LDB, Options => LOptions }
  * @param cacheSize cache size MB in RAM
  */
 
-case class LeveldbClient(path: String, cacheSize: Long = 0L) {
+case class LevelDBClient(path: String, cacheSize: Long = 0L) {
 
   lazy val options = new LOptions
   lazy val db: LDB = {
@@ -151,9 +151,9 @@ case class LeveldbClient(path: String, cacheSize: Long = 0L) {
 
 }
 
-object LeveldbClient {
-  def apply(path: String, cacheSize: Int): LeveldbClient =
-    LeveldbClient(path, cacheSize.toLong)
+object LevelDBClient {
+  def apply(path: String, cacheSize: Int): LevelDBClient =
+    LevelDBClient(path, cacheSize.toLong)
 
   def destroy(path: String): (Boolean, String) = {
     SafeExecWithMessage(LDBFactory.factory.destroy(new File(path), new LOptions))

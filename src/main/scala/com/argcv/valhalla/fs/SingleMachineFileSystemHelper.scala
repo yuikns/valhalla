@@ -3,7 +3,7 @@ package com.argcv.valhalla.fs
 import java.io.{ BufferedWriter, File, FileReader, FileWriter }
 
 import breeze.io.CSVReader
-import com.argcv.valhalla.client.LeveldbClient
+import com.argcv.valhalla.client.LevelDBClient$
 import com.argcv.valhalla.exception.ExceptionHelper.SafeExecWithMessage
 import com.argcv.valhalla.utils.Awakable
 
@@ -53,8 +53,8 @@ trait SingleMachineFileSystemHelper extends Awakable {
     pw.close()
   }
 
-  def writeToLevelDB(path: String, cacheSize: Long = 0L)(body: (LeveldbClient) => Unit): Unit = {
-    lazy val ldb = new LeveldbClient(path, cacheSize)
+  def writeToLevelDB(path: String, cacheSize: Long = 0L)(body: (LevelDBClient) => Unit): Unit = {
+    lazy val ldb = new LevelDBClient(path, cacheSize)
     body(ldb)
     ldb.close()
   }
