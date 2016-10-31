@@ -21,13 +21,14 @@ object BuildValhalla extends Build {
   lazy val publishSettings = Seq(
     isSnapshot := false,
     publishMavenStyle := true,
-    publishTo := {
-      val nexus = "https://oss.sonatype.org/"
-      if (isSnapshot.value)
-        Some("snapshots" at nexus + "content/repositories/snapshots")
-      else
-        Some("releases" at nexus + "service/local/staging/deploy/maven2")
-    },
+    //    publishTo := {
+    //      val nexus = "https://oss.sonatype.org/"
+    //      if (isSnapshot.value)
+    //        Some("snapshots" at nexus + "content/repositories/snapshots")
+    //      else
+    //        Some("releases" at nexus + "service/local/staging/deploy/maven2")
+    //    },
+    publishTo := Some(Resolver.file("file", new File(Path.userHome.absolutePath + "/.m2/repository"))),
     publishArtifact in Test := false,
     pomIncludeRepository := { _ => false }
   )
@@ -45,7 +46,10 @@ object BuildValhalla extends Build {
       "net.liftweb" % "lift-webkit_2.11" % "3.0-M6", // a light weight framework for web
       "com.google.guava" % "guava" % "18.0", // string process etc. (snake case for example)
       "ch.qos.logback" % "logback-classic" % "1.1.2", // logger, can be ignored in play framwork
+      "org.iq80.leveldb" % "leveldb" % "0.7", // leveldb
+      "org.mongodb" % "casbah_2.11" % "3.1.0", // mongodb
       "org.scalanlp" % "breeze_2.11" % "0.11.2", // collection
+      "org.spire-math" % "spire_2.11" % "0.12.0",
       "org.scalatest" % "scalatest_2.11" % "2.2.5" % "test"
     ),
     dependencyOverrides ++= Set(
