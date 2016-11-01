@@ -58,6 +58,59 @@ case class SockBuffer(host: String, port: Int, timeout: Int = 0) {
   }
 
   /**
+   * send a length first, and then send
+   *
+   * @param buff buffer to sent
+   * @return
+   */
+  def sendWithLength(buff: String): Boolean = {
+    val bytes: Array[Byte] = buff.getBytes
+    val lenArray = bytes.length.getByteArray
+    send(lenArray, 0, lenArray.length) && send(bytes, 0, bytes.length)
+  }
+
+  /**
+   * Reads up to <code>len</code> bytes of data from the input stream into
+   * an array of bytes.  An attempt is made to read as many as
+   * <code>len</code> bytes, but a smaller number may be read.
+   *
+   * the result will converted to string
+   *
+   * @param len the maximum number of bytes to read.
+   * @return
+   */
+  def recvAsString(len: Int): Option[String] = {
+    recv(len) match {
+      case Some(s) => Some(new String(s))
+      case None => None
+    }
+  }
+
+  /**
+   * Reads up to <code>len</code> bytes of data from the input stream into
+   * an array of bytes.  An attempt is made to read as many as
+   * <code>len</code> bytes, but a smaller number may be read.
+   *
+   * @param len the maximum number of bytes to read.
+   * @return
+   */
+  def recv(len: Int): Option[Array[Byte]] = {
+    SafeExecWithTrace {
+      val is = sock.getInputStream
+      val rt = new Array[Byte](len)
+      val rl = is.read(rt, 0, len)
+      Some(rt.take(rl))
+    } match {
+      case Some(resp) =>
+        resp
+      case None =>
+        //some exception occured, try to reconnect
+        activate()
+        None
+    }
+  }
+
+  /**
    * reactivate
    *
    * @return is success?
@@ -110,62 +163,6 @@ case class SockBuffer(host: String, port: Int, timeout: Int = 0) {
       case t: Throwable =>
         t.printStackTrace()
         false
-    }
-  }
-
-  /**
-   * send a length first, and then send
-   *
-   * @param buff buffer to sent
-   * @return
-   */
-  def sendWithLength(buff: String): Boolean = {
-    val bytes: Array[Byte] = buff.getBytes
-    val lenArray = bytes.length.getByteArray
-    send(lenArray, 0, lenArray.length) && send(bytes, 0, bytes.length)
-  }
-
-  /**
-   * Reads up to <code>len</code> bytes of data from the input stream into
-   * an array of bytes.  An attempt is made to read as many as
-   * <code>len</code> bytes, but a smaller number may be read.
-   *
-   * the result will converted to string
-   *
-   * @param len the maximum number of bytes to read.
-   * @return
-   */
-  def recvAsString(len: Int): Option[String] = {
-    recv(len) match {
-      case Some(s) => Some(new String(s))
-      case None => None
-    }
-  }
-
-  /**
-   * Reads up to <code>len</code> bytes of data from the input stream into
-   * an array of bytes.  An attempt is made to read as many as
-   * <code>len</code> bytes, but a smaller number may be read.
-   *
-   * @param len the maximum number of bytes to read.
-   * @return
-   */
-  def recv(len: Int): Option[Array[Byte]] = {
-    SafeExecWithTrace {
-      val is = sock.getInputStream
-      val rt = new Array[Byte](len)
-      val rl = is.read(rt, 0, len)
-      Some(rt.take(rl))
-    } match {
-      case Some(resp) =>
-        resp
-      case None =>
-
-        /**
-         * some exception occured, try to reconnect
-         */
-        activate()
-        None
     }
   }
 

@@ -22,8 +22,7 @@ import scala.reflect.ClassTag
  */
 case class MongoDBClient(
   db: String = "admin",
-  user: String = "admin",
-  pass: Option[String] = None,
+  auth: Option[(String, String)] = None,
   addrs: Array[(String, Int)] = Array[(String, Int)](("localhost", 27017)), //
   lifeTimeMs: Int = 1000 * 60 * 30, // in ms
   idleTimeMs: Int = 1000 * 60 * 30, // in ms
@@ -35,8 +34,8 @@ case class MongoDBClient(
   maxPerHost: Int = 32,
   threadsAllowedToBlockForConnectionMultiplier: Int = 1500,
   defaultPreference: ReadPreference = ReadPreference.Nearest) extends Awakable {
-  lazy val d: MongoDB = init(addrs, user, db, pass, primary = false)(db)
-  lazy val dPrimary: MongoDB = init(addrs, user, db, pass, primary = true)(db)
+  lazy val d: MongoDB = init(addrs, db, auth, primary = false)(db)
+  lazy val dPrimary: MongoDB = init(addrs, db, auth, primary = true)(db)
 
   lazy val nProcessors = MongoDBClient.nProcessors
   lazy val label = MongoDBClient.label
@@ -658,23 +657,27 @@ case class MongoDBClient(
   /**
    * create a new mongo db connection
    *
-   * @param user   username
-   * @param pass   password
-   * @param addrs  addres
-   * @param dbname db name
+   * @param addrs   addres
+   * @param dbname  db name
+   * @param primary primary?
+   * @param auth    auth(username and password, or empty)
    */
-  private def init(addrs: Array[(String, Int)], user: String, dbname: String, pass: Option[String], primary: Boolean = false): MongoClient = {
+  private def init(addrs: Array[(String, Int)], dbname: String, auth: Option[(String, String)], primary: Boolean = false): MongoClient = {
     val minConnections = (nProcessors * minPerHostFactor).toInt max minPerHost
     val maxConnections = (nProcessors * maxPerHostFactor).toInt min maxPerHost max minConnections
     //def mongoConn(host: String, port: Int, user: String, dbname: String, pass: Array[Char], addrs: Array[(String, Int)]): MongoClient = {
     //println(MONGO_HOST + "\t" + MONGO_PORT + "\t" + MONGO_USER + "\t" + MONGO_DB) // + "\t" + MONGO_PASS.toString)
-    logger.info(s"[$label] auth... user:[$user] db:[$dbname] ")
+    if (auth.isDefined) {
+      logger.info(s"[$label] auth... user:[${auth.get._1}] db:[$dbname] ")
+    } else {
+      logger.info(s"[$label] no-auth.. db:[$dbname] ")
+    }
     addrs.foreach(x => logger.info(s"[$label] server:" +
       s" ${x._1.toString.withColor(BLUE)}:${x._2.toString.withColor(YELLOW)}"))
     //val server = new ServerAddress(host, port)
-    val credentials: List[MongoCredential] = pass match {
-      case Some(s) =>
-        List[MongoCredential](MongoCredential.createCredential(user, dbname, s.toCharArray))
+    val credentials: List[MongoCredential] = auth match {
+      case Some(a) =>
+        List[MongoCredential](MongoCredential.createCredential(a._1, dbname, a._2.toCharArray))
       case None =>
         List[MongoCredential]()
     }
