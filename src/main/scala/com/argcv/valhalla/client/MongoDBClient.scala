@@ -22,7 +22,7 @@ import scala.reflect.ClassTag
  */
 case class MongoDBClient(
   db: String = "admin",
-  auth: Option[(String, String)] = None,
+  auth: Option[(String, String, String)] = None, // user pass, authdb
   addrs: Array[(String, Int)] = Array[(String, Int)](("localhost", 27017)), //
   lifeTimeMs: Int = 1000 * 60 * 30, // in ms
   idleTimeMs: Int = 1000 * 60 * 30, // in ms
@@ -662,13 +662,13 @@ case class MongoDBClient(
    * @param primary primary?
    * @param auth    auth(username and password, or empty)
    */
-  private def init(addrs: Array[(String, Int)], dbname: String, auth: Option[(String, String)], primary: Boolean = false): MongoClient = {
+  private def init(addrs: Array[(String, Int)], dbname: String, auth: Option[(String, String, String)], primary: Boolean = false): MongoClient = {
     val minConnections = (nProcessors * minPerHostFactor).toInt max minPerHost
     val maxConnections = (nProcessors * maxPerHostFactor).toInt min maxPerHost max minConnections
     //def mongoConn(host: String, port: Int, user: String, dbname: String, pass: Array[Char], addrs: Array[(String, Int)]): MongoClient = {
     //println(MONGO_HOST + "\t" + MONGO_PORT + "\t" + MONGO_USER + "\t" + MONGO_DB) // + "\t" + MONGO_PASS.toString)
     if (auth.isDefined) {
-      logger.info(s"[$label] auth... user:[${auth.get._1}] db:[$dbname] ")
+      logger.info(s"[$label] auth... user:[${auth.get._1}] db:[$dbname] auth db:[${auth.get._3}]")
     } else {
       logger.info(s"[$label] no-auth.. db:[$dbname] ")
     }
@@ -677,7 +677,7 @@ case class MongoDBClient(
     //val server = new ServerAddress(host, port)
     val credentials: List[MongoCredential] = auth match {
       case Some(a) =>
-        List[MongoCredential](MongoCredential.createCredential(a._1, dbname, a._2.toCharArray))
+        List[MongoCredential](MongoCredential.createCredential(a._1, auth.get._3, a._2.toCharArray))
       case None =>
         List[MongoCredential]()
     }

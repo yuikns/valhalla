@@ -56,6 +56,7 @@ object BuildValhalla extends Build {
       "org.scala-lang" % "scala-reflect" % projScalaVersion,
       "org.scala-lang" % "scala-compiler" % projScalaVersion,
       "org.scala-lang" % "scala-library" % projScalaVersion,
+      "org.spire-math" % "spire_2.11" % "0.12.0",
       "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.4"
     )
   )
