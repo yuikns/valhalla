@@ -23,7 +23,7 @@ case class MySQLClient(
   val pool: GenericObjectPool[Connection] = new GenericObjectPool[Connection](new MySqlObjectFactory(), maxActive, whenExhaustedAction, maxWait)
 
   /**
-   * @param body handle on ssdb request
+   * @param body handle on com.udpwork.ssdb request
    * @tparam T return type
    * @return
    */
