@@ -1139,6 +1139,6 @@ trait SSDBClient extends Awakable {
 
 }
 
-object SSDBClient$ extends SSDBClient {
+object SSDBClient extends SSDBClient {
 
 }
