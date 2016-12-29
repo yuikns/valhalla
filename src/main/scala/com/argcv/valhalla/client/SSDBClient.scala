@@ -51,22 +51,6 @@ trait SSDBClient extends Awakable {
     set(key, value, pool) && expire(key, ttl, pool)
 
   /**
-   * Set the time left to live in seconds, only for keys of KV type.
-   */
-  def expire(key: String, ttl: Long, pool: SSDBPool): Boolean =
-    pool.execWithClient(_.expire(key, ttl))._1
-
-  /**
-   * Set the value of the key.
-   *
-   * @param key   key, limit: length should less than 200
-   * @param value value limit: length should less than 30MB
-   * @param pool  pool
-   */
-  def set(key: String, value: String, pool: SSDBPool): Boolean =
-    pool.execWithClient(_.set(key, value))._1
-
-  /**
    * set value by key.
    * set ttl if key does not exists
    * this function impliment it by client
@@ -85,6 +69,22 @@ trait SSDBClient extends Awakable {
         set(key, value, pool)
         expire(key, ttl, pool)
     }
+
+  /**
+   * Set the time left to live in seconds, only for keys of KV type.
+   */
+  def expire(key: String, ttl: Long, pool: SSDBPool): Boolean =
+    pool.execWithClient(_.expire(key, ttl))._1
+
+  /**
+   * Set the value of the key.
+   *
+   * @param key   key, limit: length should less than 200
+   * @param value value limit: length should less than 30MB
+   * @param pool  pool
+   */
+  def set(key: String, value: String, pool: SSDBPool): Boolean =
+    pool.execWithClient(_.set(key, value))._1
 
   //  /**
   //   * Set the value of the key. with expire
@@ -178,6 +178,33 @@ trait SSDBClient extends Awakable {
   }
 
   /**
+   * value must exists
+   */
+  private def getKeyValueListFromResp(resp: Response): List[(String, Long)] = {
+    SafeExecWithTrace {
+      val it = resp.keys.iterator()
+      val vmap = resp.items
+      val l = ListBuffer[(String, Long)]()
+      while (it.hasNext) {
+        val x = it.next()
+        val key = new String(x)
+        val value = java.lang.Long.parseLong(new String(vmap.get(x)))
+        l.append((key, value))
+      }
+      l.toList
+    } match {
+      case Some(v) => v
+      case None => List[(String, Long)]()
+    }
+  }
+
+  /**
+   * Return the number of pairs of a zset.
+   */
+  def zsize(key: String, pool: SSDBPool): Long =
+    pool.safeWithClient(_.zsize(key)).safeGetOrElse(0)
+
+  /**
    * return count of keys in [scoreStart, scoreEnd]
    *
    * @param name       name
@@ -217,33 +244,6 @@ trait SSDBClient extends Awakable {
       List[(String, Long)]()
     }
   }
-
-  /**
-   * value must exists
-   */
-  private def getKeyValueListFromResp(resp: Response): List[(String, Long)] = {
-    SafeExecWithTrace {
-      val it = resp.keys.iterator()
-      val vmap = resp.items
-      val l = ListBuffer[(String, Long)]()
-      while (it.hasNext) {
-        val x = it.next()
-        val key = new String(x)
-        val value = java.lang.Long.parseLong(new String(vmap.get(x)))
-        l.append((key, value))
-      }
-      l.toList
-    } match {
-      case Some(v) => v
-      case None => List[(String, Long)]()
-    }
-  }
-
-  /**
-   * Return the number of pairs of a zset.
-   */
-  def zsize(key: String, pool: SSDBPool): Long =
-    pool.safeWithClient(_.zsize(key)).safeGetOrElse(0)
 
   /**
    * Increment the number stored at key in a zset by num. <br/>
@@ -434,6 +434,24 @@ trait SSDBClient extends Awakable {
   }
 
   /**
+   * generate a string which is larger than current string
+   * abc => abd
+   * this function has some bugs if the final character is 0xff,
+   * but i dont think it is important in current
+   *
+   * @param s input string
+   * @return
+   */
+  protected def prefixPreProcess(s: String): String = {
+    if (s == null || s.length() == 0) {
+      ""
+    } else {
+      val part = s.splitAt(s.length - 1)
+      part._1 + (part._2.charAt(0) + 1).toChar
+    }
+  }
+
+  /**
    * iter a hmap via (start, +inf]
    * start == "" means (-inf, +inf]
    *
@@ -495,24 +513,6 @@ trait SSDBClient extends Awakable {
     }._1
   }
 
-  /**
-   * generate a string which is larger than current string
-   * abc => abd
-   * this function has some bugs if the final character is 0xff,
-   * but i dont think it is important in current
-   *
-   * @param s input string
-   * @return
-   */
-  protected def prefixPreProcess(s: String): String = {
-    if (s == null || s.length() == 0) {
-      ""
-    } else {
-      val part = s.splitAt(s.length - 1)
-      part._1 + (part._2.charAt(0) + 1).toChar
-    }
-  }
-
   def delPrefix(prefix: String, pool: SSDBPool) {
     scanPrefix(handle = (k: String, v: String, d: Any) => {
       del(k, pool)
@@ -548,6 +548,13 @@ trait SSDBClient extends Awakable {
         }
       }
     }._1
+  }
+
+  /**
+   * Delete specified key.
+   */
+  def del(key: String, pool: SSDBPool): Boolean = {
+    pool.execWithClient(r => r.del(key))._1
   }
 
   def delValueByKey(key: String, pool: SSDBPool): Boolean = del(key, pool)
@@ -674,16 +681,6 @@ trait SSDBClient extends Awakable {
   }
 
   /**
-   * byte array => string <br/>
-   * if input is not a byte array, it will return "" in default
-   */
-  protected def a2s(a: Object) = a match {
-    case v: Array[Byte] =>
-      new String(v)
-    case _ => ""
-  }
-
-  /**
    * because of it is reversed,
    * start score is larger than end score
    *
@@ -747,44 +744,13 @@ trait SSDBClient extends Awakable {
   }
 
   /**
-   * WARNING: it will be slow in large scale ( 1M+ level)
-   *
-   * @param handle    handle
-   * @param name      name
-   * @param offset    offset
-   * @param size      limitation
-   * @param batchSize batch size
-   * @param data      data
-   * @param pool      pool
-   * @tparam T type
-   * @return
+   * byte array => string <br/>
+   * if input is not a byte array, it will return "" in default
    */
-  def ziter[T](handle: (String, Long, Option[T]) => Boolean,
-    name: String,
-    offset: Int = 0,
-    size: Int = 0,
-    batchSize: Int = 10, data: Option[T] = None, pool: SSDBPool): Boolean = {
-    pool.execWithClient { r =>
-      var count = 0
-      var eof = false
-      val rBatchSize = if (batchSize <= 0) 100 else batchSize
-      var status = true
-      while (!eof && (size == 0 || count < size)) {
-        val g = r.zrange(name, offset + count, rBatchSize).items.entrySet()
-        val rsize = g.size()
-        if (rsize > 0) {
-          val it = g.iterator()
-          var kv: java.util.Map.Entry[Array[Byte], Array[Byte]] = null
-          while (status && it.hasNext && (size == 0 || count < size)) {
-            kv = it.next()
-            status = handle(a2s(kv.getKey), new String(kv.getValue).safeToLongOrElse(0L), data)
-            count += 1
-          }
-        } else {
-          eof = true
-        }
-      }
-    }._1
+  protected def a2s(a: Object) = a match {
+    case v: Array[Byte] =>
+      new String(v)
+    case _ => ""
   }
 
   //  /**
@@ -842,9 +808,45 @@ trait SSDBClient extends Awakable {
   //  }
 
   /**
-   * @see del
+   * WARNING: it will be slow in large scale ( 1M+ level)
+   *
+   * @param handle    handle
+   * @param name      name
+   * @param offset    offset
+   * @param size      limitation
+   * @param batchSize batch size
+   * @param data      data
+   * @param pool      pool
+   * @tparam T type
+   * @return
    */
-  def rm(key: String, pool: SSDBPool): Boolean = del(key = key, pool = pool)
+  def ziter[T](handle: (String, Long, Option[T]) => Boolean,
+    name: String,
+    offset: Int = 0,
+    size: Int = 0,
+    batchSize: Int = 10, data: Option[T] = None, pool: SSDBPool): Boolean = {
+    pool.execWithClient { r =>
+      var count = 0
+      var eof = false
+      val rBatchSize = if (batchSize <= 0) 100 else batchSize
+      var status = true
+      while (!eof && (size == 0 || count < size)) {
+        val g = r.zrange(name, offset + count, rBatchSize).items.entrySet()
+        val rsize = g.size()
+        if (rsize > 0) {
+          val it = g.iterator()
+          var kv: java.util.Map.Entry[Array[Byte], Array[Byte]] = null
+          while (status && it.hasNext && (size == 0 || count < size)) {
+            kv = it.next()
+            status = handle(a2s(kv.getKey), new String(kv.getValue).safeToLongOrElse(0L), data)
+            count += 1
+          }
+        } else {
+          eof = true
+        }
+      }
+    }._1
+  }
 
   //  /**
   //    * <b>WARNING: not fully tested</b>
@@ -901,11 +903,9 @@ trait SSDBClient extends Awakable {
   //  }
 
   /**
-   * Delete specified key.
+   * @see del
    */
-  def del(key: String, pool: SSDBPool): Boolean = {
-    pool.execWithClient(r => r.del(key))._1
-  }
+  def rm(key: String, pool: SSDBPool): Boolean = del(key = key, pool = pool)
 
   def delZSetByPrefix(prefix: String, pool: SSDBPool) {
     var count = 0
@@ -1042,6 +1042,13 @@ trait SSDBClient extends Awakable {
 
     /**
      * @param body handle on ssdb request
+     * @return
+     */
+    def execWithClient(body: SSDB => Unit): (Boolean, String) =
+      SafeExecWithMessage(withClient[Unit](body))
+
+    /**
+     * @param body handle on ssdb request
      * @tparam T return type
      * @return
      */
@@ -1073,13 +1080,6 @@ trait SSDBClient extends Awakable {
     }
 
     override def toString = "[SSDB] " + host + ":" + String.valueOf(port)
-
-    /**
-     * @param body handle on ssdb request
-     * @return
-     */
-    def execWithClient(body: SSDB => Unit): (Boolean, String) =
-      SafeExecWithMessage(withClient[Unit](body))
 
     // close pool & free resources
     def close() = pool.close()
@@ -1140,5 +1140,18 @@ trait SSDBClient extends Awakable {
 }
 
 object SSDBClient extends SSDBClient {
-
+  def initSSDBPool(host: String,
+    port: Int,
+    timeout: Int = 10000,
+    maxActive: Int = 1024,
+    whenExhaustedAction: Byte = WHEN_EXHAUSTED_GROW,
+    maxWait: Long = 10000): SSDBClient.SSDBPool = {
+    SSDBClient.SSDBPool(
+      host = host,
+      port = port,
+      timeout = timeout,
+      maxActive = maxActive,
+      whenExhaustedAction = whenExhaustedAction,
+      maxWait = maxWait)
+  }
 }
