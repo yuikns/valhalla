@@ -807,46 +807,46 @@ trait SSDBClient extends Awakable {
   //    }._1
   //  }
 
-  /**
-   * WARNING: it will be slow in large scale ( 1M+ level)
-   *
-   * @param handle    handle
-   * @param name      name
-   * @param offset    offset
-   * @param size      limitation
-   * @param batchSize batch size
-   * @param data      data
-   * @param pool      pool
-   * @tparam T type
-   * @return
-   */
-  def ziter[T](handle: (String, Long, Option[T]) => Boolean,
-    name: String,
-    offset: Int = 0,
-    size: Int = 0,
-    batchSize: Int = 10, data: Option[T] = None, pool: SSDBPool): Boolean = {
-    pool.execWithClient { r =>
-      var count = 0
-      var eof = false
-      val rBatchSize = if (batchSize <= 0) 100 else batchSize
-      var status = true
-      while (!eof && (size == 0 || count < size)) {
-        val g = r.zrange(name, offset + count, rBatchSize).items.entrySet()
-        val rsize = g.size()
-        if (rsize > 0) {
-          val it = g.iterator()
-          var kv: java.util.Map.Entry[Array[Byte], Array[Byte]] = null
-          while (status && it.hasNext && (size == 0 || count < size)) {
-            kv = it.next()
-            status = handle(a2s(kv.getKey), new String(kv.getValue).safeToLongOrElse(0L), data)
-            count += 1
-          }
-        } else {
-          eof = true
-        }
-      }
-    }._1
-  }
+  //  /**
+  //   * WARNING: it will be slow in large scale ( 1M+ level)
+  //   *
+  //   * @param handle    handle
+  //   * @param name      name
+  //   * @param offset    offset
+  //   * @param size      limitation
+  //   * @param batchSize batch size
+  //   * @param data      data
+  //   * @param pool      pool
+  //   * @tparam T type
+  //   * @return
+  //   */
+  //  def ziter[T](handle: (String, Long, Option[T]) => Boolean,
+  //    name: String,
+  //    offset: Int = 0,
+  //    size: Int = 0,
+  //    batchSize: Int = 10, data: Option[T] = None, pool: SSDBPool): Boolean = {
+  //    pool.execWithClient { r =>
+  //      var count = 0
+  //      var eof = false
+  //      val rBatchSize = if (batchSize <= 0) 100 else batchSize
+  //      var status = true
+  //      while (!eof && (size == 0 || count < size)) {
+  //        val g = r.zrange(name, offset + count, rBatchSize).items.entrySet()
+  //        val rsize = g.size()
+  //        if (rsize > 0) {
+  //          val it = g.iterator()
+  //          var kv: java.util.Map.Entry[Array[Byte], Array[Byte]] = null
+  //          while (status && it.hasNext && (size == 0 || count < size)) {
+  //            kv = it.next()
+  //            status = handle(a2s(kv.getKey), new String(kv.getValue).safeToLongOrElse(0L), data)
+  //            count += 1
+  //          }
+  //        } else {
+  //          eof = true
+  //        }
+  //      }
+  //    }._1
+  //  }
 
   //  /**
   //    * <b>WARNING: not fully tested</b>
@@ -909,41 +909,22 @@ trait SSDBClient extends Awakable {
 
   def delZSetByPrefix(prefix: String, pool: SSDBPool) {
     var count = 0
-    zlistPrefixForKey(handle = (k: String, d: Any) => {
+    zlistIter(prefix = prefix, pool = pool) { k =>
       zclear(k, pool)
       count += 1
       if (count % 10000 == 0) {
         println("remove count :" + count)
       }
-    }, prefix = prefix, size = 0, batchSize = 100, pool = pool)
+      true
+    }
     println(s"all removed with prefix : $prefix")
   }
 
-  def zlistPrefixForKey[T](handle: (String, Option[T]) => Unit,
+  def zlistIter(
     prefix: String = "",
     size: Int = 0,
     batchSize: Int = 10,
-    data: Option[T] = None,
-    pool: SSDBPool): Boolean =
-    zlistIter(
-      handle = { (k: String, d: Option[T]) =>
-        {
-          handle(k, d)
-          true
-        }
-      },
-      prefix = prefix,
-      size = size,
-      batchSize = batchSize,
-      data = data,
-      pool = pool)
-
-  def zlistIter[T](handle: (String, Option[T]) => Boolean,
-    prefix: String = "",
-    size: Int = 0,
-    batchSize: Int = 10,
-    data: Option[T] = None,
-    pool: SSDBPool): Boolean = {
+    pool: SSDBPool)(handle: String => Boolean): Boolean = {
     pool.execWithClient { r =>
       var keyStart = prefix
       val keyEnd = prefixPreProcess(prefix)
@@ -960,7 +941,7 @@ trait SSDBClient extends Awakable {
           var key: String = null
           while (persist && it.hasNext && (size == 0 || count < size)) {
             key = a2s(it.next())
-            persist = handle(key, data)
+            persist = handle(key)
             count += 1
           }
           keyStart = key
@@ -968,12 +949,8 @@ trait SSDBClient extends Awakable {
           eof = true
         }
       }
-    }._1
-  }
-
-  @deprecated("use zclear instead", "")
-  def clearZSetByKey(key: String, pool: SSDBPool): Boolean =
-    zclear(key, pool)
+    }
+  }._1
 
   /**
    * Delete all keys in a zset.
@@ -981,12 +958,11 @@ trait SSDBClient extends Awakable {
   def zclear(name: String, pool: SSDBPool): Boolean =
     pool.execWithClient(_.zclear(name))._1
 
-  def zrlistIter[T](handle: (String, Option[T]) => Boolean,
+  def zrlistIter(
     prefix: String = "",
     size: Int = 0,
     batchSize: Int = 10,
-    data: Option[T] = None,
-    pool: SSDBPool): Boolean = {
+    pool: SSDBPool)(handle: String => Boolean): Boolean = {
     pool.execWithClient { r =>
       var keyStart = prefix
       val keyEnd = prefixPreProcess(prefix)
@@ -1003,7 +979,7 @@ trait SSDBClient extends Awakable {
           var key: String = null
           while (persist && it.hasNext && (size == 0 || count < size)) {
             key = a2s(it.next())
-            persist = handle(key, data)
+            persist = handle(key)
             count += 1
           }
           keyStart = key
