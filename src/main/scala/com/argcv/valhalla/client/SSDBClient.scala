@@ -958,6 +958,20 @@ trait SSDBClient extends Awakable {
   def zclear(name: String, pool: SSDBPool): Boolean =
     pool.execWithClient(_.zclear(name))._1
 
+  /**
+   * remove all keys, slow but leave process to others
+   * @param name name
+   * @param pool pool
+   * @return
+   */
+  def zclearSlow(name: String, pool: SSDBPool): Boolean = {
+    zscan(name, "", None, None, step = 100, pool = pool) { (k, _) =>
+      zdel(name, k, pool)
+      true
+    }
+    zclear(name, pool)
+  }
+
   def zrlistIter(
     prefix: String = "",
     size: Int = 0,
