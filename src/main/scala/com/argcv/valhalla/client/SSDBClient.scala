@@ -160,11 +160,10 @@ trait SSDBClient extends Awakable {
     if (zsize(name, pool) > 0) {
       pool.safeWithClient { r =>
         val resp = r.zrange(name, offset, size)
-        resp.ok() match {
-          case true =>
-            getKeyValueListFromResp(resp)
-          case false =>
-            List[(String, Long)]()
+        if (resp.ok()) {
+          getKeyValueListFromResp(resp)
+        } else {
+          List[(String, Long)]()
         }
       } match {
         case Some(l) =>
@@ -228,11 +227,10 @@ trait SSDBClient extends Awakable {
     if (zsize(name, pool) > 0) {
       pool.safeWithClient { r =>
         val resp = r.zrrange(name, offset, size)
-        resp.ok() match {
-          case true =>
-            getKeyValueListFromResp(resp)
-          case false =>
-            List[(String, Long)]()
+        if (resp.ok()) {
+          getKeyValueListFromResp(resp)
+        } else {
+          List[(String, Long)]()
         }
       } match {
         case Some(l) =>
@@ -516,7 +514,7 @@ trait SSDBClient extends Awakable {
   def delPrefix(prefix: String, pool: SSDBPool) {
     scanPrefix(handle = (k: String, v: String, d: Any) => {
       del(k, pool)
-    }, prefix = prefix, size = 0, batchSize = 100, pool = pool)
+    }, prefix = prefix, batchSize = 100, pool = pool)
   }
 
   def scanPrefix[T](handle: (String, String, Option[T]) => Unit,
@@ -747,7 +745,7 @@ trait SSDBClient extends Awakable {
    * byte array => string <br/>
    * if input is not a byte array, it will return "" in default
    */
-  protected def a2s(a: Object) = a match {
+  protected def a2s(a: Object): String = a match {
     case v: Array[Byte] =>
       new String(v)
     case _ => ""
@@ -1043,8 +1041,9 @@ trait SSDBClient extends Awakable {
      * @return
      */
     def withClient[T](body: SSDB => T): T = {
-      val client: SSDB = pool.borrowObject // a timeout exception may comes here
+      var client: SSDB = null
       try {
+        client = pool.borrowObject // a timeout exception may comes here
         body(client)
       } catch {
         case e: SocketTimeoutException =>
@@ -1059,20 +1058,25 @@ trait SSDBClient extends Awakable {
           logger.warn(s"[SSDB] [TimeoutException], labeled as INVALID ${e.getMessage} # $toString")
           client.labelAsInvalid()
           throw e
+        case e: NoSuchElementException =>
+          logger.warn(s"[SSDB] [NoSuchElementException], labeled as INVALID ${e.getMessage} # $toString")
+          //client.labelAsInvalid()
+          throw e
         case e: Exception =>
           e.printStackTrace()
           logger.error(s"[SSDB] [####Exception####], labeled as INVALID ${e.getMessage} # $toString")
           client.labelAsInvalid()
           throw e
       } finally {
-        pool.returnObject(client)
+        if (client != null)
+          pool.returnObject(client)
       }
     }
 
-    override def toString = "[SSDB] " + host + ":" + String.valueOf(port)
+    override def toString: String = "[SSDB] " + host + ":" + String.valueOf(port)
 
     // close pool & free resources
-    def close() = pool.close()
+    def close(): Unit = pool.close()
 
     /**
      * @param host    host name
