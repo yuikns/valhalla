@@ -5,7 +5,7 @@ import java.nio.charset.CodingErrorAction
 
 import breeze.io.CSVReader
 import com.argcv.valhalla.client.LevelDBClient
-import com.argcv.valhalla.exception.ExceptionHelper.SafeExecWithMessage
+import com.argcv.valhalla.exception.ExceptionHelper.{ SafeExec, SafeExecWithMessage, SafeExecWithTrace }
 import com.argcv.valhalla.utils.Awakable
 
 import scala.io.{ Codec, Source }
@@ -45,8 +45,16 @@ trait SingleMachineFileSystemHelper extends Awakable {
   }
 
   def safeGetLines(path: String): Iterator[String] = {
-    val decoder = Codec.UTF8.decoder.onMalformedInput(CodingErrorAction.IGNORE)
-    Source.fromFile(new File(path))(decoder).getLines()
+    val f = new File(path)
+    if (f.exists() && f.isFile) {
+      val decoder = Codec.UTF8.decoder.onMalformedInput(CodingErrorAction.IGNORE)
+      SafeExecWithTrace(Source.fromFile(new File(path))(decoder).getLines()) match {
+        case Some(lines) => lines
+        case None => Iterator[String]()
+      }
+    } else {
+      Iterator[String]()
+    }
   }
 
   /**
