@@ -1,13 +1,14 @@
 package com.argcv.valhalla.fs
 
 import java.io.{ BufferedWriter, File, FileReader, FileWriter }
+import java.nio.charset.CodingErrorAction
 
 import breeze.io.CSVReader
 import com.argcv.valhalla.client.LevelDBClient
 import com.argcv.valhalla.exception.ExceptionHelper.SafeExecWithMessage
 import com.argcv.valhalla.utils.Awakable
 
-import scala.io.Source
+import scala.io.{ Codec, Source }
 
 /**
  *
@@ -22,6 +23,7 @@ trait SingleMachineFileSystemHelper extends Awakable {
     SafeExecWithMessage {
       def getRecursively(f: File): Seq[File] =
         f.listFiles.filter(_.isDirectory).flatMap(getRecursively) ++ f.listFiles
+
       val froot = new File(path)
       if (froot.exists()) {
         if (froot.isDirectory) {
@@ -42,12 +44,28 @@ trait SingleMachineFileSystemHelper extends Awakable {
     Source.fromFile(new File(path)).getLines()
   }
 
+  def safeGetLines(path: String): Iterator[String] = {
+    val decoder = Codec.UTF8.decoder.onMalformedInput(CodingErrorAction.IGNORE)
+    Source.fromFile(new File(path))(decoder).getLines()
+  }
+
   /**
    * @param path file path
    * @param body writer getter
    */
   def writeLines(path: String)(body: (BufferedWriter) => Unit): Unit = {
     val pw = new BufferedWriter(new FileWriter(new File(path)))
+    body(pw)
+    pw.flush()
+    pw.close()
+  }
+
+  /**
+   * @param path file path
+   * @param body writer getter
+   */
+  def appendLines(path: String)(body: (BufferedWriter) => Unit): Unit = {
+    val pw = new BufferedWriter(new FileWriter(new File(path), true))
     body(pw)
     pw.flush()
     pw.close()
